@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nextax
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nextax
+      JWT_ACCESS_SECRET: ci-access-secret-with-more-than-32-characters
+      JWT_REFRESH_SECRET: ci-refresh-secret-with-more-than-32-characters
+      WEB_ORIGIN: http://localhost:5173
+      NEXCORE_PRODUCT_KEY: ci-nexcore-product-key
+      NEXCORE_INTERNAL_API_KEY: ci-nexcore-internal-key
+      NEXTAX_INTERNAL_API_KEY: ci-nextax-internal-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm run prisma:generate
+      - run: npm -w apps/api run build
+      - run: npm -w apps/web run build
+      - run: npm audit --omit=dev --audit-level=moderate

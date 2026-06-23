@@ -1,0 +1,21 @@
+{
+  "name": "nextax",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "npm -w apps/api run dev",
+    "dev:web": "npm -w apps/web run dev",
+    "build": "npm -w apps/api run build && npm -w apps/web run build",
+    "prisma:generate": "npm -w apps/api run prisma:generate",
+    "prisma:deploy": "npm -w apps/api run prisma:deploy",
+    "smoke:production": "node scripts/production-smoke-test.mjs",
+    "typecheck": "npm run prisma:generate && cd apps/api && npx tsc -p tsconfig.json --noEmit && cd ../web && npx tsc -b --noEmit",
+    "build:api": "npm -w apps/api run build",
+    "build:web": "npm -w apps/web run build",
+    "check": "npm run prisma:generate && npm run build:api && npm run build:web"
+  },
+  "devDependencies": {}
+}

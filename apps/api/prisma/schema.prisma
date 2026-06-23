@@ -1,0 +1,526 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+enum AccountOrigin {
+  NEXTAX
+  NEXCORE
+}
+
+enum NextaxPlan {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum IntegrationKey {
+  NEXFINANCE
+  NEXSTOCK
+  NEXCRM
+}
+
+enum BillingItemType {
+  PLAN
+  INTEGRATION_ADDON
+}
+
+enum BillingStatus {
+  PENDING
+  APPROVED
+  AUTHORIZED
+  IN_PROCESS
+  REJECTED
+  CANCELLED
+  REFUNDED
+  CHARGED_BACK
+  ERROR
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  FINANCE
+  ACCOUNTANT
+  READER
+}
+
+enum TaxRegime {
+  MEI
+  SIMPLES_NACIONAL
+  AUTONOMO
+  UNKNOWN
+  OTHER
+}
+
+enum BusinessType {
+  SERVICE
+  COMMERCE
+  INDUSTRY
+  SERVICE_AND_COMMERCE
+  OTHER
+}
+
+enum PaymentMethod {
+  PIX
+  CASH
+  CARD
+  BOLETO
+  TRANSFER
+  OTHER
+}
+
+enum RevenueCategory {
+  SERVICE
+  PRODUCT
+  RECURRING
+  OCCASIONAL
+  OTHER
+}
+
+enum ExpenseCategory {
+  RENT
+  ENERGY
+  INTERNET
+  ACCOUNTANT
+  SUPPLIER
+  TRANSPORT
+  MARKETING
+  SOFTWARE
+  CARD_MACHINE
+  WORK_MATERIAL
+  MAINTENANCE
+  FOOD
+  OTHER
+}
+
+enum ObligationType {
+  DAS_MEI
+  DAS_SIMPLES
+  MUNICIPAL_GUIDE
+  CUSTOM_TAX
+  OTHER
+}
+
+enum ObligationStatus {
+  PENDING
+  PAID
+  OVERDUE
+  IGNORED
+  REVIEWING
+}
+
+enum InvoiceType {
+  ISSUED
+  RECEIVED
+  RECEIPT
+  FISCAL_COUPON
+  OTHER
+}
+
+enum DocumentType {
+  DAS
+  INVOICE
+  RECEIPT
+  STATEMENT
+  CONTRACT
+  COMPANY_DOCUMENT
+  PERSONAL_DOCUMENT
+  REPORT
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  REVIEWED
+  SENT_TO_ACCOUNTANT
+  APPROVED
+  REJECTED
+  NEEDS_FIX
+}
+
+enum ChecklistStatus {
+  OPEN
+  DONE
+  PARTIAL
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  DONE
+  SKIPPED
+}
+
+enum ReportStatus {
+  GENERATED
+  SENT
+  ARCHIVED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(OWNER)
+  origin       AccountOrigin @default(NEXTAX)
+  emailVerifiedAt DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenants             TenantMember[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt, revokedAt])
+}
+
+model Tenant {
+  id         String    @id @default(cuid())
+  name       String
+  legalName  String?
+  cnpj       String?
+  taxProfile TaxRegime @default(UNKNOWN)
+  plan       NextaxPlan @default(FREE)
+  planExpiresAt DateTime?
+  origin     AccountOrigin @default(NEXTAX)
+  enabledIntegrations IntegrationKey[] @default([])
+  integrationAddons   IntegrationKey[] @default([])
+  city       String?
+  state      String?
+  phone      String?
+  email      String?
+  ownerId    String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  members       TenantMember[]
+  fiscalProfile FiscalProfile?
+  revenues      Revenue[]
+  expenses      Expense[]
+  obligations   TaxObligation[]
+  invoices      Invoice[]
+  documents     FiscalDocument[]
+  checklists    FiscalChecklist[]
+  reports       FiscalReport[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  billingCheckouts BillingCheckout[]
+
+  @@index([ownerId])
+  @@index([plan])
+  @@index([planExpiresAt])
+  @@index([deletedAt])
+}
+
+model TenantMember {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      UserRole @default(OWNER)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model FiscalProfile {
+  id               String       @id @default(cuid())
+  tenantId         String       @unique
+  regime           TaxRegime    @default(UNKNOWN)
+  businessType     BusinessType @default(OTHER)
+  meiAnnualLimit   Decimal      @default(81000)
+  dasDueDay        Int          @default(20)
+  hasAccountant    Boolean      @default(false)
+  accountantName   String?
+  accountantEmail  String?
+  accountantPhone  String?
+  estimatedTaxRate Decimal?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Revenue {
+  id               String          @id @default(cuid())
+  tenantId         String
+  description      String
+  amount           Decimal
+  receivedAt       DateTime
+  customerName     String?
+  customerDocument String?
+  paymentMethod    PaymentMethod   @default(PIX)
+  category         RevenueCategory @default(SERVICE)
+  hasInvoice       Boolean         @default(false)
+  invoiceId        String?
+  documentId       String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, receivedAt])
+  @@index([tenantId, category])
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  tenantId      String
+  description   String
+  amount        Decimal
+  paidAt        DateTime
+  category      ExpenseCategory @default(OTHER)
+  supplierName  String?
+  paymentMethod PaymentMethod   @default(PIX)
+  isRecurring   Boolean         @default(false)
+  documentId    String?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, paidAt])
+  @@index([tenantId, category])
+}
+
+model TaxObligation {
+  id                String           @id @default(cuid())
+  tenantId          String
+  type              ObligationType
+  competenceMonth   Int
+  competenceYear    Int
+  dueDate           DateTime
+  amount            Decimal?
+  status            ObligationStatus @default(PENDING)
+  paidAt            DateTime?
+  paymentDocumentId String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status])
+  @@index([tenantId, competenceYear, competenceMonth, status])
+}
+
+model Invoice {
+  id             String      @id @default(cuid())
+  tenantId       String
+  type           InvoiceType
+  number         String?
+  issuedAt       DateTime
+  amount         Decimal
+  partyName      String?
+  partyDocument  String?
+  description    String?
+  fileDocumentId String?
+  revenueId      String?
+  expenseId      String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, issuedAt])
+}
+
+model FiscalDocument {
+  id              String         @id @default(cuid())
+  tenantId        String
+  name            String
+  type            DocumentType   @default(OTHER)
+  fileUrl         String?
+  fileKey         String?
+  mimeType        String?
+  size            Int?
+  competenceMonth Int?
+  competenceYear  Int?
+  status          DocumentStatus @default(PENDING)
+  tags            String[]       @default([])
+  uploadedBy      String?
+  deletedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, competenceYear, competenceMonth])
+  @@index([tenantId, deletedAt, createdAt])
+  @@index([tenantId, deletedAt, competenceYear, competenceMonth])
+}
+
+model FiscalChecklist {
+  id          String          @id @default(cuid())
+  tenantId    String
+  month       Int
+  year        Int
+  status      ChecklistStatus @default(OPEN)
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  FiscalChecklistItem[]
+
+  @@unique([tenantId, month, year])
+}
+
+model FiscalChecklistItem {
+  id          String              @id @default(cuid())
+  checklistId String
+  title       String
+  description String?
+  status      ChecklistItemStatus @default(PENDING)
+  dueDate     DateTime?
+  documentId  String?
+  completedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  checklist FiscalChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model FiscalReport {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  month              Int
+  year               Int
+  status             ReportStatus @default(GENERATED)
+  summary            Json
+  pdfUrl             String?
+  excelUrl           String?
+  zipUrl             String?
+  generatedBy        String?
+  generatedAt        DateTime     @default(now())
+  sentToAccountantAt DateTime?
+  createdAt          DateTime     @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, year, month])
+}
+
+model BillingCheckout {
+  id                   String          @id @default(cuid())
+  tenantId             String
+  userId               String?
+  itemType             BillingItemType
+  targetPlan           NextaxPlan?
+  integrationKey       IntegrationKey?
+  status               BillingStatus   @default(PENDING)
+  amountCents          Int
+  currency             String          @default("BRL")
+  provider             String          @default("MERCADO_PAGO")
+  providerPreferenceId String?         @unique
+  providerPaymentId    String?         @unique
+  externalReference    String          @unique
+  initPoint            String?
+  sandboxInitPoint     String?
+  rawPreference        Json?
+  rawPayment           Json?
+  paidAt               DateTime?
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+  @@index([itemType])
+  @@index([tenantId, itemType, status, periodEnd])
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String?
+  type         String
+  title        String
+  message      String
+  status       String    @default("UNREAD")
+  scheduledFor DateTime?
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+}

@@ -1,0 +1,77 @@
+services:
+  - type: web
+    name: nextax-api
+    env: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm -w apps/api run build
+    startCommand: npm run prisma:deploy && npm -w apps/api run start
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: WEB_ORIGIN
+        value: https://www.nextax.business
+      - key: WEB_ORIGINS
+        value: https://www.nextax.business,https://nextax.business
+      - key: NEXCORE_APP_URL
+        value: https://www.nexcore.business/app
+      - key: NEXCORE_API_URL
+        value: https://api.nexcore.business/api
+      - key: NEXCORE_PRODUCT_KEY
+        sync: false
+      - key: NEXCORE_INTERNAL_API_KEY
+        sync: false
+      - key: NEXTAX_INTERNAL_API_KEY
+        sync: false
+      - key: RESET_PASSWORD_URL
+        value: https://www.nextax.business/reset-password
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: NexTax <no-reply@nextax.business>
+      - key: API_PUBLIC_URL
+        value: https://api.nextax.business
+      - key: MERCADO_PAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADO_PAGO_PUBLIC_KEY
+        sync: false
+      - key: MERCADO_PAGO_WEBHOOK_SECRET
+        sync: false
+      - key: MERCADO_PAGO_SUCCESS_URL
+        value: https://www.nextax.business/?billing=success
+      - key: MERCADO_PAGO_FAILURE_URL
+        value: https://www.nextax.business/?billing=failure
+      - key: MERCADO_PAGO_PENDING_URL
+        value: https://www.nextax.business/?billing=pending
+      - key: MERCADO_PAGO_STATEMENT_DESCRIPTOR
+        value: NEXTAX
+      - key: NEXTAX_PRICE_STARTER
+        value: 29.90
+      - key: NEXTAX_PRICE_PRO
+        value: 59.90
+      - key: NEXTAX_PRICE_BUSINESS
+        value: 129.90
+      - key: NEXTAX_ADDON_NEXFINANCE_PRICE
+        value: 19.90
+      - key: NEXTAX_ADDON_NEXSTOCK_PRICE
+        value: 29.90
+      - key: NEXTAX_ADDON_NEXCRM_PRICE
+        value: 39.90
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: nextax-documents
+      - key: SUPABASE_SIGNED_URL_EXPIRES_IN
+        value: 600
